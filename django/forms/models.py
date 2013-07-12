@@ -726,7 +726,8 @@ class BaseModelFormSet(BaseFormSet):
             obj = self._existing_object(pk_value)
             if form in forms_to_delete:
                 self.deleted_objects.append(obj)
-                obj.delete()
+                if commit:
+                    obj.delete()
                 continue
             if form.has_changed():
                 self.changed_objects.append((obj, form.changed_data))
