@@ -1805,7 +1805,7 @@ This has a number of caveats though:
   does not retrieve and set the primary key attribute, as ``save()`` does.
 * It does not work with many-to-many relationships.
 
-.. versionchanged:: 1.9
+.. versionchanged:: 1.8.3
 
     Support for using ``bulk_create()`` with proxy models was added.
 

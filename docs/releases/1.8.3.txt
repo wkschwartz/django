@@ -70,6 +70,9 @@ expression has been simplified and optimized.
 Bugfixes
 ========
 
+* :meth:`QuerySet.bulk_create() <django.db.models.query.QuerySet.bulk_create>`
+  now works on proxy models (:ticket:`24997`).
+
 * Fixed ``BaseRangeField.prepare_value()`` to use each ``base_field``’s
   ``prepare_value()`` method (:ticket:`24841`).
 
