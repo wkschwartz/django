@@ -20,15 +20,15 @@ from django.db import (
 )
 from django.utils.functional import cached_property
 
+has_bz2 = True
 try:
     import bz2
-    has_bz2 = True
 except ImportError:
     has_bz2 = False
 
+has_lzma = True
 try:
     import lzma
-    has_lzma = True
 except ImportError:
     has_lzma = False
 
@@ -117,8 +117,8 @@ class Command(BaseCommand):
         else:
             return
 
+        self.objs_with_deferred_fields = []
         with connection.constraint_checks_disabled():
-            self.objs_with_deferred_fields = []
             for fixture_label in fixture_labels:
                 self.load_label(fixture_label)
             for obj in self.objs_with_deferred_fields:
@@ -163,10 +163,10 @@ class Command(BaseCommand):
             _, ser_fmt, cmp_fmt = self.parse_name(os.path.basename(fixture_file))
             open_method, mode = self.compression_formats[cmp_fmt]
             fixture = open_method(fixture_file, mode)
+            self.fixture_count += 1
+            objects_in_fixture = 0
+            loaded_objects_in_fixture = 0
             try:
-                self.fixture_count += 1
-                objects_in_fixture = 0
-                loaded_objects_in_fixture = 0
                 if self.verbosity >= 2:
                     self.stdout.write(
                         "Installing %s fixture '%s' from %s."
@@ -205,14 +205,14 @@ class Command(BaseCommand):
                         self.objs_with_deferred_fields.append(obj)
                 if objects and show_progress:
                     self.stdout.write()  # Add a newline after progress indicator.
-                self.loaded_object_count += loaded_objects_in_fixture
-                self.fixture_object_count += objects_in_fixture
             except Exception as e:
                 if not isinstance(e, CommandError):
                     e.args = ("Problem installing fixture '%s': %s" % (fixture_file, e),)
                 raise
             finally:
                 fixture.close()
+            self.loaded_object_count += loaded_objects_in_fixture
+            self.fixture_object_count += objects_in_fixture
 
             # Warn if the fixture we loaded contains 0 objects.
             if objects_in_fixture == 0:
