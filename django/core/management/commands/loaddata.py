@@ -145,16 +145,12 @@ class Command(BaseCommand):
                         cursor.execute(line)
 
         if self.verbosity >= 1:
-            if self.fixture_object_count == self.loaded_object_count:
-                self.stdout.write(
-                    "Installed %d object(s) from %d fixture(s)"
-                    % (self.loaded_object_count, self.fixture_count)
-                )
-            else:
-                self.stdout.write(
-                    "Installed %d object(s) (of %d) from %d fixture(s)"
-                    % (self.loaded_object_count, self.fixture_object_count, self.fixture_count)
-                )
+            msg = "Installed %d object(s) {}from %d fixture(s)" % (
+                self.loaded_object_count, self.fixture_count)
+            of = ""
+            if self.fixture_object_count != self.loaded_object_count:
+                of = f"(of {self.fixture_object_count}) "
+            self.stdout.write(msg.format(of))
 
     def load_label(self, fixture_label):
         """Load fixtures files for a given label."""
