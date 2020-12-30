@@ -166,13 +166,13 @@ class Command(BaseCommand):
             self.fixture_count += 1
             objects_in_fixture = 0
             loaded_objects_in_fixture = 0
-            try:
-                if self.verbosity >= 2:
-                    self.stdout.write(
-                        "Installing %s fixture '%s' from %s."
-                        % (ser_fmt, fixture_name, humanize(fixture_dir))
-                    )
+            if self.verbosity >= 2:
+                self.stdout.write(
+                    "Installing %s fixture '%s' from %s."
+                    % (ser_fmt, fixture_name, humanize(fixture_dir))
+                )
 
+            try:
                 objects = serializers.deserialize(
                     ser_fmt, fixture, using=self.using, ignorenonexistent=self.ignore,
                     handle_forward_references=True,
@@ -188,11 +188,6 @@ class Command(BaseCommand):
                         self.models.add(obj.object.__class__)
                         try:
                             obj.save(using=self.using)
-                            if show_progress:
-                                self.stdout.write(
-                                    '\rProcessed %i object(s).' % loaded_objects_in_fixture,
-                                    ending=''
-                                )
                         # psycopg2 raises ValueError if data contains NUL chars.
                         except (DatabaseError, IntegrityError, ValueError) as e:
                             e.args = ("Could not load %(object_label)s(pk=%(pk)s): %(error_msg)s" % {
@@ -201,16 +196,21 @@ class Command(BaseCommand):
                                 'error_msg': e,
                             },)
                             raise
+                        if show_progress:
+                            self.stdout.write(
+                                '\rProcessed %i object(s).' % loaded_objects_in_fixture,
+                                ending=''
+                            )
                     if obj.deferred_fields:
                         self.objs_with_deferred_fields.append(obj)
-                if objects_in_fixture and show_progress:
-                    self.stdout.write()  # Add a newline after progress indicator.
             except Exception as e:
                 if not isinstance(e, CommandError):
                     e.args = ("Problem installing fixture '%s': %s" % (fixture_file, e),)
                 raise
             finally:
                 fixture.close()
+            if objects_in_fixture and show_progress:
+                self.stdout.write()  # Add a newline after progress indicator.
             self.loaded_object_count += loaded_objects_in_fixture
             self.fixture_object_count += objects_in_fixture
 
