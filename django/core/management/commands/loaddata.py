@@ -203,7 +203,7 @@ class Command(BaseCommand):
                             raise
                     if obj.deferred_fields:
                         self.objs_with_deferred_fields.append(obj)
-                if objects and show_progress:
+                if objects_in_fixture and show_progress:
                     self.stdout.write()  # Add a newline after progress indicator.
             except Exception as e:
                 if not isinstance(e, CommandError):
