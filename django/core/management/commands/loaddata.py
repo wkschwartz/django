@@ -156,7 +156,7 @@ class Command(BaseCommand):
         """Load fixtures files for a given label."""
         show_progress = self.verbosity >= 3
         for fixture_file, fixture_dir, fixture_name in self.find_fixtures(fixture_label):
-            _, ser_fmt, cmp_fmt = self.parse_name(os.path.basename(fixture_file))
+            _, ser_fmt, cmp_fmt = self.parse_name(fixture_file)
             open_method, mode = self.compression_formats[cmp_fmt]
             fixture = open_method(fixture_file, mode)
             self.fixture_count += 1
@@ -232,14 +232,14 @@ class Command(BaseCommand):
         if self.verbosity >= 2:
             self.stdout.write("Loading '%s' fixtures..." % fixture_name)
 
+        dirname, basename = os.path.split(fixture_name)
         if os.path.isabs(fixture_name):
-            fixture_dirs = [os.path.dirname(fixture_name)]
+            fixture_dirs = [dirname]
         else:
             fixture_dirs = self.fixture_dirs
             if os.path.sep in os.path.normpath(fixture_name):
-                fixture_dirs = [os.path.join(dir_, os.path.dirname(fixture_name))
-                                for dir_ in fixture_dirs]
-        fixture_name = os.path.basename(fixture_name)
+                fixture_dirs = [os.path.join(dir_, dirname) for dir_ in fixture_dirs]
+        fixture_name = basename
 
         suffixes = (
             '.'.join(ext for ext in combo if ext)
