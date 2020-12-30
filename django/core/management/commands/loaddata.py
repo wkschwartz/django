@@ -84,6 +84,31 @@ class Command(BaseCommand):
         if transaction.get_autocommit(self.using):
             connections[self.using].close()
 
+    @cached_property
+    def compression_formats(self):
+        # Forcing binary mode may be revisited after dropping Python 2 support (see #22399)
+        compression_formats = {
+            None: (open, 'rb'),
+            'gz': (gzip.GzipFile, 'rb'),
+            'zip': (SingleZipReader, 'r'),
+            'stdin': (lambda *args: sys.stdin, None),
+        }
+        if has_bz2:
+            compression_formats['bz2'] = (bz2.BZ2File, 'r')
+        if has_lzma:
+            compression_formats['lzma'] = (lzma.LZMAFile, 'r')
+            compression_formats['xz'] = (lzma.LZMAFile, 'r')
+        return compression_formats
+
+    def _reset_sequences(self, connection):
+        sequence_sql = connection.ops.sequence_reset_sql(no_style(), self.models)
+        if sequence_sql:
+            if self.verbosity >= 2:
+                self.stdout.write('Resetting sequences')
+            with connection.cursor() as cursor:
+                for line in sequence_sql:
+                    cursor.execute(line)
+
     def loaddata(self, fixture_labels):
         connection = connections[self.using]
 
@@ -94,18 +119,6 @@ class Command(BaseCommand):
         self.models = set()
 
         self.serialization_formats = serializers.get_public_serializer_formats()
-        # Forcing binary mode may be revisited after dropping Python 2 support (see #22399)
-        self.compression_formats = {
-            None: (open, 'rb'),
-            'gz': (gzip.GzipFile, 'rb'),
-            'zip': (SingleZipReader, 'r'),
-            'stdin': (lambda *args: sys.stdin, None),
-        }
-        if has_bz2:
-            self.compression_formats['bz2'] = (bz2.BZ2File, 'r')
-        if has_lzma:
-            self.compression_formats['lzma'] = (lzma.LZMAFile, 'r')
-            self.compression_formats['xz'] = (lzma.LZMAFile, 'r')
 
         # Django's test suite repeatedly tries to load initial_data fixtures
         # from apps that don't have any fixtures. Because disabling constraint
@@ -136,13 +149,7 @@ class Command(BaseCommand):
         # If we found even one object in a fixture, we need to reset the
         # database sequences.
         if self.loaded_object_count > 0:
-            sequence_sql = connection.ops.sequence_reset_sql(no_style(), self.models)
-            if sequence_sql:
-                if self.verbosity >= 2:
-                    self.stdout.write('Resetting sequences')
-                with connection.cursor() as cursor:
-                    for line in sequence_sql:
-                        cursor.execute(line)
+            self._reset_sequences(connection)
 
         if self.verbosity >= 1:
             msg = "Installed %d object(s) {}from %d fixture(s)" % (
@@ -218,20 +225,7 @@ class Command(BaseCommand):
                     RuntimeWarning
                 )
 
-    @functools.lru_cache(maxsize=None)
-    def find_fixtures(self, fixture_label):
-        """Find fixture files for a given label."""
-        if fixture_label == READ_STDIN:
-            return [(READ_STDIN, None, READ_STDIN)]
-
-        fixture_name, ser_fmt, cmp_fmt = self.parse_name(fixture_label)
-        databases = [self.using, None]
-        cmp_fmts = list(self.compression_formats) if cmp_fmt is None else [cmp_fmt]
-        ser_fmts = self.serialization_formats if ser_fmt is None else [ser_fmt]
-
-        if self.verbosity >= 2:
-            self.stdout.write("Loading '%s' fixtures..." % fixture_name)
-
+    def _get_fixture_name_and_dirs(self, fixture_name):
         dirname, basename = os.path.split(fixture_name)
         if os.path.isabs(fixture_name):
             fixture_dirs = [dirname]
@@ -239,14 +233,31 @@ class Command(BaseCommand):
             fixture_dirs = self.fixture_dirs
             if os.path.sep in os.path.normpath(fixture_name):
                 fixture_dirs = [os.path.join(dir_, dirname) for dir_ in fixture_dirs]
-        fixture_name = basename
+        return basename, fixture_dirs
 
+    def _get_targets(self, fixture_name, ser_fmt, cmp_fmt):
+        databases = [self.using, None]
+        cmp_fmts = list(self.compression_formats) if cmp_fmt is None else [cmp_fmt]
+        ser_fmts = self.serialization_formats if ser_fmt is None else [ser_fmt]
         suffixes = (
             '.'.join(ext for ext in combo if ext)
             for combo in product(databases, ser_fmts, cmp_fmts)
         )
-        targets = {'.'.join((fixture_name, suffix)) for suffix in suffixes}
+        return {'.'.join((fixture_name, suffix)) for suffix in suffixes}
 
+    @functools.lru_cache(maxsize=None)
+    def find_fixtures(self, fixture_label):
+        """Find fixture files for a given label."""
+        if fixture_label == READ_STDIN:
+            return [(READ_STDIN, None, READ_STDIN)]
+
+        fixture_name, ser_fmt, cmp_fmt = self.parse_name(fixture_label)
+
+        if self.verbosity >= 2:
+            self.stdout.write("Loading '%s' fixtures..." % fixture_name)
+
+        fixture_name, fixture_dirs = self._get_fixture_name_and_dirs(fixture_name)
+        targets = self._get_targets(fixture_name, ser_fmt, cmp_fmt)
         fixture_files = []
         for fixture_dir in fixture_dirs:
             if self.verbosity >= 2:
