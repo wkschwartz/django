@@ -251,6 +251,27 @@ class Command(BaseCommand):
         )
         return {'.'.join((fixture_name, suffix)) for suffix in suffixes}
 
+    def _find_fixture_files_in_dir(self, fixture_dir, fixture_name, targets):
+        fixture_files_in_dir = []
+        path = os.path.join(fixture_dir, fixture_name)
+        for candidate in glob.iglob(glob.escape(path) + '*'):
+            if os.path.basename(candidate) in targets:
+                # Save the fixture_dir and fixture_name for future error messages.
+                fixture_files_in_dir.append((candidate, fixture_dir, fixture_name))
+        return fixture_files_in_dir
+
+    def _check_fixture_files_in_dir(self, fixture_dir, fixture_name, fixture_files_in_dir):
+        if self.verbosity >= 2 and not fixture_files_in_dir:
+            self.stdout.write("No fixture '%s' in %s." %
+                              (fixture_name, humanize(fixture_dir)))
+
+        # Check kept for backwards-compatibility; it isn't clear why
+        # duplicates are only allowed in different directories.
+        if len(fixture_files_in_dir) > 1:
+            raise CommandError(
+                "Multiple fixtures named '%s' in %s. Aborting." %
+                (fixture_name, humanize(fixture_dir)))
+
     @functools.lru_cache(maxsize=None)
     def find_fixtures(self, fixture_label):
         """Find fixture files for a given label."""
@@ -268,23 +289,9 @@ class Command(BaseCommand):
         for fixture_dir in fixture_dirs:
             if self.verbosity >= 2:
                 self.stdout.write("Checking %s for fixtures..." % humanize(fixture_dir))
-            fixture_files_in_dir = []
-            path = os.path.join(fixture_dir, fixture_name)
-            for candidate in glob.iglob(glob.escape(path) + '*'):
-                if os.path.basename(candidate) in targets:
-                    # Save the fixture_dir and fixture_name for future error messages.
-                    fixture_files_in_dir.append((candidate, fixture_dir, fixture_name))
-
-            if self.verbosity >= 2 and not fixture_files_in_dir:
-                self.stdout.write("No fixture '%s' in %s." %
-                                  (fixture_name, humanize(fixture_dir)))
-
-            # Check kept for backwards-compatibility; it isn't clear why
-            # duplicates are only allowed in different directories.
-            if len(fixture_files_in_dir) > 1:
-                raise CommandError(
-                    "Multiple fixtures named '%s' in %s. Aborting." %
-                    (fixture_name, humanize(fixture_dir)))
+            fixture_files_in_dir = self._find_fixture_files_in_dir(
+                fixture_dir, fixture_name, targets)
+            self._check_fixture_files_in_dir(fixture_dir, fixture_name, fixture_files_in_dir)
             fixture_files.extend(fixture_files_in_dir)
 
         if not fixture_files:
