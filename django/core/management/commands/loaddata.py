@@ -159,6 +159,28 @@ class Command(BaseCommand):
                 of = f"(of {self.fixture_object_count}) "
             self.stdout.write(msg.format(of))
 
+    def _store_obj(self, obj):
+        if (obj.object._meta.app_config in self.excluded_apps or
+                type(obj.object) in self.excluded_models):
+            return False
+        stored = False
+        if router.allow_migrate_model(self.using, obj.object.__class__):
+            stored = True
+            self.models.add(obj.object.__class__)
+            try:
+                obj.save(using=self.using)
+            # psycopg2 raises ValueError if data contains NUL chars.
+            except (DatabaseError, IntegrityError, ValueError) as e:
+                e.args = ("Could not load %(object_label)s(pk=%(pk)s): %(error_msg)s" % {
+                    'object_label': obj.object._meta.label,
+                    'pk': obj.object.pk,
+                    'error_msg': e,
+                },)
+                raise
+        if obj.deferred_fields:
+            self.objs_with_deferred_fields.append(obj)
+        return stored
+
     def load_label(self, fixture_label):
         """Load fixtures files for a given label."""
         show_progress = self.verbosity >= 3
@@ -183,29 +205,13 @@ class Command(BaseCommand):
 
                 for obj in objects:
                     objects_in_fixture += 1
-                    if (obj.object._meta.app_config in self.excluded_apps or
-                            type(obj.object) in self.excluded_models):
-                        continue
-                    if router.allow_migrate_model(self.using, obj.object.__class__):
+                    if self._store_obj(obj):
                         loaded_objects_in_fixture += 1
-                        self.models.add(obj.object.__class__)
-                        try:
-                            obj.save(using=self.using)
-                        # psycopg2 raises ValueError if data contains NUL chars.
-                        except (DatabaseError, IntegrityError, ValueError) as e:
-                            e.args = ("Could not load %(object_label)s(pk=%(pk)s): %(error_msg)s" % {
-                                'object_label': obj.object._meta.label,
-                                'pk': obj.object.pk,
-                                'error_msg': e,
-                            },)
-                            raise
                         if show_progress:
                             self.stdout.write(
                                 '\rProcessed %i object(s).' % loaded_objects_in_fixture,
                                 ending=''
                             )
-                    if obj.deferred_fields:
-                        self.objs_with_deferred_fields.append(obj)
             except Exception as e:
                 if not isinstance(e, CommandError):
                     e.args = ("Problem installing fixture '%s': %s" % (fixture_file, e),)
