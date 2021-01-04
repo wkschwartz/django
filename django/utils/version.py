@@ -76,6 +76,9 @@ def get_git_changeset():
     This value isn't guaranteed to be unique, but collisions are very unlikely,
     so it's sufficient for generating the development version numbers.
     """
+    # If __file__ is undefined in this module, we won't be able to find the
+    # repo. Besides, we're likely running inside a frozen module, which isn't
+    # necessarily frozen from the repo's working tree in the first place.
     if '__file__' not in globals():
         return None
     repo_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
