@@ -86,7 +86,7 @@ def module_dir(module):
     Raise ValueError otherwise, e.g. for namespace packages that are split
     over several directories.
     """
-    # Convert to list because _NamespacePath does not support indexing.
+    # Convert to list because __path__ is only required to be Iterable[str]
     paths = list(getattr(module, '__path__', []))
     if len(paths) == 1:
         return paths[0]
