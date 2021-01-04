@@ -8,7 +8,7 @@ from django.conf import settings
 from django.core.exceptions import (
     FieldDoesNotExist, ImproperlyConfigured, ValidationError,
 )
-from django.utils.functional import lazy
+from django.utils.functional import cached_property, lazy
 from django.utils.html import format_html, format_html_join
 from django.utils.module_loading import import_string
 from django.utils.translation import gettext as _, ngettext
@@ -168,15 +168,9 @@ class CommonPasswordValidator:
     The password list must be lowercased to match the comparison in validate().
     """
 
-    @property
+    @cached_property
     def DEFAULT_PASSWORD_LIST_PATH(self):
-        if not hasattr(self, "_DEFAULT_PASSWORD_LIST_PATH"):
-            self._DEFAULT_PASSWORD_LIST_PATH = Path(__file__).resolve().parent / 'common-passwords.txt.gz'
-        return self._DEFAULT_PASSWORD_LIST_PATH
-
-    @DEFAULT_PASSWORD_LIST_PATH.setter
-    def DEFAULT_PASSWORD_LIST_PATH(self, value):
-        self._DEFAULT_PASSWORD_LIST_PATH = value
+        return Path(__file__).resolve().parent / 'common-passwords.txt.gz'
 
     def __init__(self, password_list_path=DEFAULT_PASSWORD_LIST_PATH):
         if password_list_path is CommonPasswordValidator.DEFAULT_PASSWORD_LIST_PATH:
