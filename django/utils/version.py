@@ -76,6 +76,8 @@ def get_git_changeset():
     This value isn't guaranteed to be unique, but collisions are very unlikely,
     so it's sufficient for generating the development version numbers.
     """
+    if '__file__' not in globals():
+        return None
     repo_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     git_log = subprocess.run(
         ['git', 'log', '--pretty=format:%ct', '--quiet', '-1', 'HEAD'],

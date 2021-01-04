@@ -12,6 +12,18 @@ class VersionTests(SimpleTestCase):
         ver_string = get_version(ver_tuple)
         self.assertRegex(ver_string, r'1\.4(\.dev[0-9]+)?')
 
+    def test_development_no_file(self):
+        import django.utils.version
+        if not hasattr(django.utils.version, '__file__'):
+            return  # test_development() already accomplished this test's goal
+        version_file = django.utils.version.__file__
+        try:
+            del django.utils.version.__file__
+            ver_string = get_version((1, 4, 0, 'alpha', 0))
+        finally:
+            django.utils.version.__file__ = version_file
+        self.assertEqual(ver_string, "1.4")
+
     def test_releases(self):
         tuples_to_strings = (
             ((1, 4, 0, 'alpha', 1), '1.4a1'),
