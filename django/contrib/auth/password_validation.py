@@ -167,9 +167,20 @@ class CommonPasswordValidator:
     https://gist.github.com/roycewilliams/281ce539915a947a23db17137d91aeb7
     The password list must be lowercased to match the comparison in validate().
     """
-    DEFAULT_PASSWORD_LIST_PATH = Path(__file__).resolve().parent / 'common-passwords.txt.gz'
+
+    @property
+    def DEFAULT_PASSWORD_LIST_PATH(self):
+        if not hasattr(self, "_DEFAULT_PASSWORD_LIST_PATH"):
+            self._DEFAULT_PASSWORD_LIST_PATH = Path(__file__).resolve().parent / 'common-passwords.txt.gz'
+        return self._DEFAULT_PASSWORD_LIST_PATH
+
+    @DEFAULT_PASSWORD_LIST_PATH.setter
+    def DEFAULT_PASSWORD_LIST_PATH(self, value):
+        self._DEFAULT_PASSWORD_LIST_PATH = value
 
     def __init__(self, password_list_path=DEFAULT_PASSWORD_LIST_PATH):
+        if password_list_path is CommonPasswordValidator.DEFAULT_PASSWORD_LIST_PATH:
+            password_list_path = self.DEFAULT_PASSWORD_LIST_PATH
         try:
             with gzip.open(password_list_path, 'rt', encoding='utf-8') as f:
                 self.passwords = {x.strip() for x in f}
